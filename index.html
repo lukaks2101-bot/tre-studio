@@ -79,8 +79,12 @@
   <dialog id="brief-dialog" class="dialog"><form id="brief-form"><button type="button" class="dialog-close" data-close aria-label="Stäng projektbrief">×</button><p class="eyebrow">EN BRA BÖRJAN</p><h2>Berätta om din idé.</h2><p>Skapa en kort projektbrief som du kan spara och dela. Inget skickas automatiskt.</p><label for="brief-service">Vad behöver du?</label><select id="brief-service" name="tjanst"><option>Enkel hemsida</option><option>Digital meny</option><option>Innehållspaket</option><option>Ett digitalt verktyg</option><option>Jag vill diskutera en idé</option></select><label for="brief-company">Företag eller projekt</label><input id="brief-company" name="foretag" maxlength="100" placeholder="Till exempel: ett kafé"><label for="brief-idea">Vad ska bli bättre? <span>(obligatoriskt)</span></label><textarea id="brief-idea" name="ide" rows="4" required maxlength="3000" placeholder="Berätta vad du vill skapa och vem det är till för."></textarea><label for="brief-time">Önskad tidsram</label><select id="brief-time" name="tidsram"><option>Inte bestämt ännu</option><option>Inom en månad</option><option>Inom tre månader</option><option>Jag vill börja med en skiss</option></select><button class="button" type="submit">Ladda ner projektbrief <span aria-hidden="true">↓</span></button><p class="form-status" id="brief-status" role="status"></p></form></dialog>
   <dialog id="content-dialog" class="dialog content-dialog"><button type="button" class="dialog-close" data-close aria-label="Stäng innehållsexemplet">×</button><p class="eyebrow">DEMO / INNEHÅLLSPAKET</p><h2>En nyhet. Flera sätt<br>att berätta om den.</h2><p>Ett fiktivt paket för Söder & kaffe. Tre bildmallar och exempeltexter för en lansering.</p><div class="content-tabs" role="group" aria-label="Välj exempel på inlägg"><button type="button" class="active" data-post="0" aria-pressed="true">Lansering</button><button type="button" data-post="1" aria-pressed="false">Påminnelse</button><button type="button" data-post="2" aria-pressed="false">Berättelse</button></div><div class="content-example"><div class="post-art" id="post-art"><small>SÖDER & KAFFE</small><h3 id="post-title">Din nya<br>favorit.</h3><span class="post-symbol" aria-hidden="true">✳</span><p id="post-label">EN NY FAVORIT PÅ MENYN</p></div><div class="post-copy"><p class="eyebrow">EXEMPEL PÅ INLÄGGSTEXT</p><p id="post-caption"></p><button type="button" class="button outline" id="download-post">Ladda ner bildmallen ↓</button><p class="muted">SVG-format · går att redigera och exportera till PNG.</p></div></div></dialog>
   <dialog id="tool-dialog" class="dialog"><button type="button" class="dialog-close" data-close aria-label="Stäng projektplaneraren">×</button><p class="eyebrow">DEMO / INTERAKTIVT VERKTYG</p><h2>Hitta ditt upplägg.</h2><p>Ett exempel på ett litet verktyg som hjälper besökaren att beskriva vad den behöver.</p><label for="calc-service">Välj tjänst</label><select id="calc-service"><option>Digital meny</option><option>Enkel hemsida</option><option>Innehållspaket</option></select><label class="check-label"><input type="checkbox" id="calc-language"> Lägg till ett andra språk</label><div class="calc-result"><span>Ditt föreslagna upplägg</span><output id="calc-total" for="calc-service calc-language">Digital meny · ett språk</output></div><p class="muted">Vi diskuterar omfattning och pris med dig. Planeraren gör ingen beställning.</p><button type="button" class="button" id="calc-brief">Skapa en projektbrief ↗</button></dialog>
-<script>// Fyll i en kontaktadress när ni har valt en. En tom adress behåller projektbriefen.
-window.STUDIO_CONFIG = { email: '' };
+<script>// Endast projektets offentliga publishable key får ligga i denna fil.
+// Databasens åtkomstregler och teamkonto har verifierats.
+window.STUDIO_CONFIG = {
+  email: '',
+  chat: { enabled: true, url: 'https://ppszkdkwgaxgzkqjfsfb.supabase.co', publishableKey: 'sb_publishable_09RnpgwE3WySXyQo_46o6g_Yrk25sR1' }
+};
 
 'use strict';
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -98,7 +102,13 @@ function openDialog(id, trigger) { dialogTrigger = trigger || document.activeEle
 $$('dialog').forEach(dialog => { dialog.addEventListener('click', event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close(); } }); dialog.addEventListener('close', () => { if (dialogTrigger?.isConnected) dialogTrigger.focus(); }); });
 $$('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
 $$('[data-open]').forEach(button => button.addEventListener('click', () => openDialog(button.dataset.open + '-dialog', button)));
-function brief(service, trigger) { $('#brief-service').value = service; $('#brief-status').textContent = ''; openDialog('brief-dialog', trigger); }
+function brief(service, trigger, idea = '') {
+  if (window.STUDIO_CONFIG?.chat?.enabled) {
+    try { sessionStorage.setItem('studio-chat-draft', JSON.stringify({service, idea})); } catch {}
+    window.location.href = 'kontakt.html'; return;
+  }
+  $('#brief-service').value = service; $('#brief-status').textContent = ''; openDialog('brief-dialog', trigger);
+}
 $$('[data-brief]').forEach(button => button.addEventListener('click', () => brief(button.dataset.brief, button)));
 $('#brief-form').addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget; if (!form.reportValidity()) return; const data = new FormData(form); const text = ['PROJEKTBRIEF — TRE STUDIO', '', 'Tjänst: ' + data.get('tjanst'), 'Företag/projekt: ' + (data.get('foretag').trim() || 'Inte angivet'), 'Önskad tidsram: ' + data.get('tidsram'), '', 'Idé och behov:', data.get('ide').trim(), '', 'Briefen har skapats lokalt. Inget har skickats och detta är ingen beställning eller offert.'].join('\n'); download('projektbrief-tre-studio.txt', text, 'text/plain;charset=utf-8'); $('#brief-status').textContent = 'Nedladdningen har startats. Spara briefen och dela den när du tar kontakt. Ingen förfrågan har skickats.'; });
 
@@ -115,8 +125,14 @@ $('#download-post').addEventListener('click', () => { const p = posts[selectedPo
 
 function updateCalculator() { $('#calc-total').textContent = $('#calc-service').value + ' · ' + ($('#calc-language').checked ? 'två språk' : 'ett språk'); }
 $('#calc-service').addEventListener('change', updateCalculator); $('#calc-language').addEventListener('change', updateCalculator);
-$('#calc-brief').addEventListener('click', () => { const service = $('#calc-service').selectedOptions[0].textContent; const details = ['Jag är intresserad av ' + service.toLowerCase() + '.', 'Språk: ' + ($('#calc-language').checked ? 'Två språk' : 'Ett språk'), 'Upplägg: ' + $('#calc-total').textContent + '. Omfattning och pris diskuteras tillsammans.'].join('\n'); $('#tool-dialog').close(); brief(service, $('[data-open="tool"]')); $('#brief-idea').value = details; });
+$('#calc-brief').addEventListener('click', () => { const service = $('#calc-service').selectedOptions[0].textContent; const details = ['Jag är intresserad av ' + service.toLowerCase() + '.', 'Språk: ' + ($('#calc-language').checked ? 'Två språk' : 'Ett språk'), 'Upplägg: ' + $('#calc-total').textContent + '. Omfattning och pris diskuteras tillsammans.'].join('\n'); $('#tool-dialog').close(); brief(service, $('[data-open="tool"]'), details); if (!window.STUDIO_CONFIG?.chat?.enabled) $('#brief-idea').value = details; });
 const email = window.STUDIO_CONFIG?.email?.trim();
+if (window.STUDIO_CONFIG?.chat?.enabled) {
+  const note = $('#contact-note'); note.textContent = 'Skicka en förfrågan och få svar i ditt privata samtal här. ';
+  const link = document.createElement('a'); link.href = 'kontakt.html'; link.textContent = 'Öppna mina samtal'; note.append(link);
+  const teamLink = document.createElement('a'); teamLink.href='inkorg.html'; teamLink.textContent='Studions inkorg'; teamLink.className='team-link'; $('.footer').append(teamLink);
+  $('#calc-brief').textContent='Starta en förfrågan ↗';
+}
 if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { const note = $('#contact-note'); note.textContent = ''; const link = document.createElement('a'); link.href = 'mailto:' + email; link.textContent = email; note.append('Du kan också mejla oss: ', link); }
 </script></body>
 </html>
